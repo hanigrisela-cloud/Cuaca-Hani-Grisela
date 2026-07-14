@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkyCast Pro - Aplikasi Cuaca Interaktif</title>
+    
+    <!-- CSS Frameworks -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: { customDark: '#0f172a' } } }
+        }
+    </script>
+
+    <style>
+        :root {
+            --bg-gradient-day: linear-gradient(135deg, #2563eb, #38bdf8);
+            --bg-gradient-night: linear-gradient(135deg, #0f172a, #1e1b4b);
+            --bg-gradient-rain: linear-gradient(135deg, #475569, #1e293b);
+        }
+
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; transition: background-color 0.4s ease, color 0.4s ease; }
+
+        @keyframes floatEffect {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-12px) rotate(3deg); }
+        }
+        .weather-float-anim { animation: floatEffect 5s ease-in-out infinite; }
+
+        /* Estetika Navbar Glassmorphism */
+        .glass-navbar {
+            background: rgba(15, 23, 42, 0.9) !important;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        #particles-js {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s ease;
+        }
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 10px; }
+
+        .nav-link.active-menu {
+            background: rgba(255, 255, 255, 0.15) !important;
+            color: #fbbf24 !important;
+            border-bottom: 2px solid #38bdf8;
+        }
+
+        /* Tema Gelap Kustom */
+        .html-dark-mode body {
+            background-color: #0b0f19 !important;
+            color: #f1f5f9 !important;
+        }
+        .html-dark-mode .bg-white {
+            background-color: #111827 !important;
+            color: #f1f5f9 !important;
+            border-color: #1f2937 !important;
+        }
+        .html-dark-mode .text-slate-700, .html-dark-mode .text-slate-800 {
+            color: #cbd5e1 !important;
+        }
+        .html-dark-mode .weekly-card {
+            background-color: #1f2937 !important;
+            border-color: #374151 !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <!-- NAVBAR FIXED & RESPONSIVE -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top glass-navbar z-50 py-3">
+        <div class="container">
+            <a class="navbar-brand font-extrabold flex items-center gap-2 text-white tracking-wider text-xl group" href="#hero">
+                <div class="p-2 bg-gradient-to-tr from-amber-400 to-orange-500 rounded-xl shadow-md group-hover:rotate-12 transition-transform duration-300">
+                    <i class="fa-solid fa-cloud-bolt text-white text-xl animate-pulse"></i>
+                </div>
+                <span class="text-white">SkyCast</span>
+                <span class="text-[10px] bg-sky-500/80 px-2.5 py-0.5 rounded-full text-white font-black uppercase tracking-normal border border-sky-400/30 shadow-sm">Pro</span>
+            </a>
+            
+            <button class="border-0 bg-transparent text-white text-xl lg:hidden focus:outline-none" type="button" id="customNavbarToggler">
+                <span class="text-white text-xl"><i class="fa-solid fa-bars-staggered"></i></span>
+            </button>
+            
+            <div class="hidden lg:flex lg:items-center w-full lg:w-auto transition-all duration-300" id="navbarSkycastContent">
+                <ul class="navbar-nav ms-auto text-center font-semibold gap-1 py-3 lg:py-0 flex flex-col lg:flex-row w-full">
+                    <li class="nav-item"><a class="nav-link px-3 py-2 rounded-xl text-white/85 hover:text-white hover:bg-white/10 transition active-menu" href="#hero"><i class="fa-solid fa-house text-xs me-1 text-sky-400"></i> Home</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 py-2 rounded-xl text-white/85 hover:text-white hover:bg-white/10 transition" href="#current-weather"><i class="fa-solid fa-cloud text-xs me-1 text-sky-400"></i> Cuaca Saat Ini</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 py-2 rounded-xl text-white/85 hover:text-white hover:bg-white/10 transition" href="#hourly-forecast"><i class="fa-solid fa-chart-area text-xs me-1 text-sky-400"></i> Grafik Tren</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 py-2 rounded-xl text-white/85 hover:text-white hover:bg-white/10 transition" href="#weekly-forecast"><i class="fa-solid fa-calendar-days text-xs me-1 text-sky-400"></i> 7 Hari</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 py-2 rounded-xl text-white/85 hover:text-white hover:bg-white/10 transition" href="#favorites"><i class="fa-solid fa-bookmark text-xs me-1 text-amber-400"></i> Favorit</a></li>
+                    <li class="nav-item"><a class="nav-link px-3 py-2 rounded-xl text-white/85 hover:text-white hover:bg-white/10 transition" href="#about-app"><i class="fa-solid fa-circle-info text-xs me-1 text-sky-400"></i> Tentang</a></li>
+                </ul>
+                
+                <hr class="border-white/20 my-2 lg:hidden">
+                
+                <div class="flex flex-col lg:flex-row items-center justify-center gap-3 lg:ms-4 w-full lg:w-auto">
+                    <div class="hidden sm:flex items-center text-xs font-mono text-white/70 bg-black/20 px-3 py-1.5 rounded-xl border border-white/5">
+                        <i class="fa-regular fa-clock me-2 text-sky-400"></i><span id="nav-clock">00:00:00</span>
+                    </div>
+                    <button id="theme-toggle" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold px-4 py-2 rounded-xl text-xs transition flex items-center gap-2 shadow-md w-full lg:w-auto justify-center">
+                        <i id="theme-icon" class="fa-solid fa-moon text-amber-300"></i> <span id="theme-text">Mode Gelap</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HERO SECTION -->
+    <header id="hero" class="relative text-white flex items-center justify-center py-24 px-4 overflow-hidden min-h-[55vh] transition-all duration-700 -mt-[77px] pt-[140px]" style="background: var(--bg-gradient-day);">
+        <div id="particles-js"></div>
+        
+        <div class="container text-center relative z-10 max-w-3xl mx-auto">
+            <span class="bg-white/20 text-white text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-widest inline-block mb-4 animate__animated animate__fadeInDown">Public API Live Monitor</span>
+            <h1 class="text-4xl md:text-6xl font-black mb-4 tracking-tight leading-none animate__animated animate__zoomIn">
+                Eksplorasi Cuaca Dunia <br><span class="text-amber-300 drop-shadow-md">Lebih Interaktif</span>
+            </h1>
+            <p class="text-base md:text-lg mb-8 opacity-90 max-w-xl mx-auto font-medium animate__animated animate__fadeIn animate__delay-1s">
+                Visualisasi data cuaca real-time dengan grafik modern, deteksi lokasi otomatis, dan efek latar belakang adaptif.
+            </p>
+            
+            <div class="glass-card p-3 rounded-2xl shadow-2xl max-w-xl mx-auto transform hover:scale-[1.02] transition duration-300 animate__animated animate__fadeInUp animate__delay-1s">
+                <form id="search-form" class="flex flex-col sm:flex-row gap-2">
+                    <div class="relative flex-grow">
+                        <i class="fa-solid fa-city absolute left-4 top-3.5 text-slate-400"></i>
+                        <input type="text" id="search-input" placeholder="Ketik nama kota (Misal: Bandung, Tokyo)..." class="w-full pl-11 pr-4 py-3 rounded-xl text-slate-800 font-semibold focus:outline-none focus:ring-4 focus:ring-sky-300" required>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="submit" class="w-full sm:w-auto bg-amber-400 hover:bg-amber-500 text-slate-990 font-extrabold px-6 py-3 rounded-xl transition flex items-center justify-center gap-2 shadow-lg">
+                            <i class="fa-solid fa-magnifying-glass"></i> Cari
+                        </button>
+                        <button type="button" id="btn-geo" class="bg-white/20 hover:bg-white/30 text-white font-bold px-4 py-3 rounded-xl transition flex items-center justify-center border border-white/30" title="Gunakan Lokasi Saya">
+                            <i class="fa-solid fa-location-crosshairs text-lg"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="container px-4 py-12 max-w-6xl mx-auto">
+        <div id="weather-content" class="space-y-16">
+            
+            <!-- CURRENT WEATHER -->
+            <section id="current-weather" class="reveal scroll-mt-24">
+                <div class="bg-white rounded-3xl shadow-xl overflow-hidden grid grid-cols-1 md:grid-cols-12 border border-slate-100">
+                    <div id="current-left-panel" class="md:col-span-5 p-8 text-white flex flex-col justify-between text-center md:text-left relative overflow-hidden" style="background: var(--bg-gradient-day);">
+                        <div class="relative z-10">
+                            <div class="flex justify-between items-center mb-6">
+                                <h3 id="info-city" class="text-3xl font-black tracking-wide drop-shadow-sm">Jakarta</h3>
+                                <button id="btn-fav" class="w-10 h-10 rounded-full bg-white/20 hover:bg-amber-400 hover:text-slate-900 flex items-center justify-center transition shadow">
+                                    <i class="fa-regular fa-star text-lg"></i>
+                                </button>
+                            </div>
+                            <p id="info-date" class="text-xs bg-black/20 inline-block px-3 py-1 rounded-full font-semibold opacity-90">Memuat tanggal...</p>
+                        </div>
+                        
+                        <div class="my-8 flex flex-col sm:flex-row items-center justify-center md:justify-start gap-6 relative z-10">
+                            <div class="w-24 h-24 flex items-center justify-center bg-white/10 rounded-full glass-card weather-float-anim">
+                                <i id="info-icon" class="fa-solid fa-cloud-sun text-5xl text-amber-300"></i>
+                            </div>
+                            <div>
+                                <h4 id="info-temp" class="text-6xl font-black tracking-tighter">--°C</h4>
+                                <p id="info-desc" class="text-lg font-bold capitalize bg-white/20 px-3 py-0.5 rounded-md inline-block mt-1">Menghubungkan...</p>
+                            </div>
+                        </div>
+                        <p class="text-[11px] opacity-70 relative z-10"><i class="fa-solid fa-rotate-right animate-spin"></i> Terkoneksi secara live dengan Open-Meteo Server.</p>
+                    </div>
+                    
+                    <div class="md:col-span-7 p-8 flex flex-col justify-center">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Informasi Atmosfer & Parameter</h4>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:shadow-md transition">
+                                <p class="text-xs text-slate-400 font-bold mb-1">Sensasi Suhu</p>
+                                <h5 id="detail-feels" class="font-extrabold text-xl text-slate-800">--°C</h5>
+                            </div>
+                            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:shadow-md transition">
+                                <p class="text-xs text-slate-400 font-bold mb-1">Kelembaban</p>
+                                <h5 id="detail-humidity" class="font-extrabold text-xl text-slate-800">--%</h5>
+                            </div>
+                            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:shadow-md transition">
+                                <p class="text-xs text-slate-400 font-bold mb-1">Kecepatan Angin</p>
+                                <h5 id="detail-wind" class="font-extrabold text-xl text-slate-800">-- km/h</h5>
+                            </div>
+                            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:shadow-md transition">
+                                <p class="text-xs text-slate-400 font-bold mb-1">Indeks UV Maksimal</p>
+                                <h5 id="detail-uv" class="font-extrabold text-xl text-amber-500">--</h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- HOURLY GRAPH -->
+            <section id="hourly-forecast" class="reveal scroll-mt-24">
+                <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-2">
+                    <h2 class="text-2xl font-black flex items-center gap-2">
+                        <i class="fa-solid fa-chart-area text-sky-500"></i> Tren Suhu & Waktu Efektif
+                    </h2>
+                    <span class="text-xs text-slate-400 font-semibold bg-slate-200/60 px-3 py-1 rounded-full">Interval 3 Jam Sekali</span>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-white p-6 rounded-3xl shadow-xl border border-slate-100">
+                        <canvas id="hourlyTempChart" class="w-full max-h-[280px]"></canvas>
+                    </div>
+                    <div id="hourly-container" class="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:max-h-[300px] pb-3 lg:pb-0 custom-scrollbar snap-x"></div>
+                </div>
+            </section>
+
+            <!-- WEEKLY FORECAST -->
+            <section id="weekly-forecast" class="reveal scroll-mt-24">
+                <h2 class="text-2xl font-black mb-6 flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-days text-sky-500"></i> Prakiraan Jadwal 7 Hari Ke Depan
+                </h2>
+                <div id="weekly-container" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4"></div>
+            </section>
+        </div>
+
+        <!-- FAVORITES -->
+        <section id="favorites" class="mt-16 reveal scroll-mt-24">
+            <h2 class="text-2xl font-black mb-6 flex items-center gap-2">
+                <i class="fa-solid fa-circle-bookmark text-amber-500"></i> Dasbor Kota Favorit Anda
+            </h2>
+            <div id="favorites-list" class="flex flex-wrap gap-3 bg-white p-6 rounded-3xl border border-slate-100 shadow-inner"></div>
+        </section>
+
+        <!-- BARU: SEKSYEN TENTANG APLIKASI (ABOUT SECTION) -->
+        <section id="about-app" class="mt-16 reveal scroll-mt-24">
+            <h2 class="text-2xl font-black mb-6 flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-sky-500"></i> Tentang SkyCast Pro
+            </h2>
+            <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 md:p-8 shadow-xl border border-slate-100 dark:border-slate-700 transition duration-300">
+                <div class="row align-items-center g-4">
+                    <div class="col-lg-7">
+                        <h3 class="text-xl font-bold mb-3 text-slate-800 dark:text-white">Sistem Monitor Cuaca Pintar & Adaptif</h3>
+                        <p class="text-slate-600 dark:text-slate-300 text-sm leading-relaxed mb-4">
+                            <strong>SkyCast Pro</strong> adalah platform visualisasi cuaca interaktif yang dirancang untuk menyajikan informasi meteorologi global secara akurat dan real-time. Aplikasi ini memanfaatkan arsitektur mutakhir untuk menganalisis data atmosfer langsung dari sensor satelit publik terpercaya di seluruh dunia.
+                        </p>
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Teknologi Utama Yang Digunakan:</h4>
+                        <div class="flex flex-wrap gap-2 mb-2">
+                            <span class="bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-300 text-xs px-3 py-1.5 rounded-xl font-bold border border-blue-100 dark:border-slate-600"><i class="fa-solid fa-globe me-1"></i> Open-Meteo API</span>
+                            <span class="bg-sky-50 dark:bg-slate-700 text-sky-600 dark:text-sky-300 text-xs px-3 py-1.5 rounded-xl font-bold border border-sky-100 dark:border-slate-600"><i class="fa-brands fa-css3-alt me-1"></i> Tailwind CSS & Bootstrap</span>
+                            <span class="bg-amber-50 dark:bg-slate-700 text-amber-600 dark:text-amber-300 text-xs px-3 py-1.5 rounded-xl font-bold border border-amber-100 dark:border-slate-600"><i class="fa-solid fa-chart-line me-1"></i> Chart.js Data Visual</span>
+                            <span class="bg-emerald-50 dark:bg-slate-700 text-emerald-600 dark:text-emerald-300 text-xs px-3 py-1.5 rounded-xl font-bold border border-emerald-100 dark:border-slate-600"><i class="fa-solid fa-code me-1"></i> jQuery Asynchronous Async</span>
+                        </div>
+                    </div>
+                    <div class="col-lg-5">
+                        <div class="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60 space-y-3">
+                            <div class="flex items-start gap-3">
+                                <div class="p-2 bg-sky-500 rounded-xl text-white mt-0.5"><i class="fa-solid fa-bolt text-sm"></i></div>
+                                <div>
+                                    <h5 class="text-sm font-bold text-slate-800 dark:text-white m-0">Tanpa Kunci API (Zero Delay)</h5>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400 m-0 mt-0.5">Permintaan data langsung terproses tanpa hambatan kuota otentikasi.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <div class="p-2 bg-amber-500 rounded-xl text-white mt-0.5"><i class="fa-solid fa-palette text-sm"></i></div>
+                                <div>
+                                    <h5 class="text-sm font-bold text-slate-800 dark:text-white m-0">Tema Latar Belakang Adaptif</h5>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400 m-0 mt-0.5">Warna header berubah otomatis mengikuti kondisi siang, malam, atau hujan di area tujuan.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <div class="p-2 bg-purple-500 rounded-xl text-white mt-0.5"><i class="fa-solid fa-floppy-disk text-sm"></i></div>
+                                <div>
+                                    <h5 class="text-sm font-bold text-slate-800 dark:text-white m-0">Penyimpanan Cache Lokal</h5>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400 m-0 mt-0.5">Daftar kota favorit tersimpan aman di peramban Anda menggunakan enkapsulasi LocalStorage.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-slate-900 text-white/60 text-center py-8 border-t border-slate-800 text-sm mt-24">
+        <div class="container max-w-4xl mx-auto text-center">
+            <div class="flex justify-center gap-6 mb-4 text-white text-lg">
+                <a href="#" class="hover:text-sky-400 transition"><i class="fa-brands fa-github"></i></a>
+                <a href="#" class="hover:text-sky-400 transition"><i class="fa-brands fa-linkedin"></i></a>
+                <a href="#" class="hover:text-sky-400 transition"><i class="fa-solid fa-globe"></i></a>
+            </div>
+            <p class="mb-2 text-white font-bold tracking-wide">SKYCAST INTERWEATHER APPLICATION</p>
+            <p class="text-xs opacity-70">&copy; 2026 Proyek Front-End | Open-Meteo Public API Integration.</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            let currentCityName = "";
+            let favorites = JSON.parse(localStorage.getItem('skycast_favs')) || [];
+            let tempChart = null; 
+
+            // Toggle Kustom Menu Mobile via Tailwind Utility
+            $('#customNavbarToggler').on('click', function() {
+                $('#navbarSkycastContent').toggleClass('hidden block animate__animated animate__fadeInDown');
+            });
+
+            // Auto-close menu mobile ketika salah satu menu di-klik
+            $('.navbar-nav .nav-link').on('click', function() {
+                $('.navbar-nav .nav-link').removeClass('active-menu');
+                $(this).addClass('active-menu');
+                
+                if ($(window).width() < 992) {
+                    $('#navbarSkycastContent').removeClass('block animate__animated animate__fadeInDown').addClass('hidden');
+                }
+            });
+
+            // Live Clock
+            setInterval(() => {
+                const now = new Date();
+                $('#nav-clock').text(now.toLocaleTimeString('id-ID'));
+            }, 1000);
+
+            // Dynamic Active Scroll Navbar
+            $(window).on('scroll', function() {
+                let scrollPosition = $(window).scrollTop() + 160;
+                $('section, header').each(function() {
+                    let top = $(this).offset().top;
+                    let bottom = top + $(this).outerHeight();
+                    let id = $(this).attr('id');
+
+                    if (scrollPosition >= top && scrollPosition <= bottom) {
+                        $('.navbar-nav .nav-link').removeClass('active-menu');
+                        $(`.navbar-nav .nav-link[href="#${id}"]`).addClass('active-menu');
+                    }
+                });
+            });
+
+            // Particles Background
+            function initParticles(type = 'day') {
+                let pCount = type === 'night' ? 60 : 35; 
+                try {
+                    particlesJS("particles-js", {
+                        particles: {
+                            number: { value: pCount },
+                            color: { value: "#ffffff" },
+                            shape: { type: "circle" },
+                            opacity: { value: 0.4, random: true },
+                            size: { value: 3, random: true },
+                            line_linked: { enable: false },
+                            move: { enable: true, speed: 1.2, direction: "bottom", random: true }
+                        }
+                    });
+                } catch(e) {}
+            }
+            initParticles('day');
+
+            // Scroll Animation Observer
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) $(entry.target).addClass('active');
+                });
+            }, { threshold: 0.05 });
+            $('.reveal').each(function() { observer.observe(this); });
+
+            // AKTIVASI DARK MODE SISTEM
+            if (localStorage.getItem('theme') === 'dark') {
+                $('html').addClass('dark html-dark-mode');
+                $('#theme-icon').removeClass('fa-moon text-amber-300').addClass('fa-sun text-amber-400');
+                $('#theme-text').text("Mode Terang");
+            }
+
+            $('#theme-toggle').on('click', function() {
+                $('html').toggleClass('dark html-dark-mode');
+                if ($('html').hasClass('dark')) {
+                    $('#theme-icon').removeClass('fa-moon text-amber-300').addClass('fa-sun text-amber-400');
+                    $('#theme-text').text("Mode Terang");
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    $('#theme-icon').removeClass('fa-sun text-amber-400').addClass('fa-moon text-amber-300');
+                    $('#theme-text').text("Mode Gelap");
+                    localStorage.setItem('theme', 'light');
+                }
+            });
+
+            // Initial Data Fetch
+            renderFavorites();
+            fetchWeatherByCity("Jakarta"); 
+
+            $('#search-form').on('submit', function(e) {
+                e.preventDefault();
+                const city = $('#search-input').val().trim();
+                if (city) fetchWeatherByCity(city);
+            });
+
+            $('#btn-geo').on('click', function() {
+                if (navigator.geolocation) {
+                    Swal.fire({ title: 'Mencari Lokasi Anda...', text: 'Sila izinkan akses GPS', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+                    navigator.geolocation.getCurrentPosition(
+                        (pos) => { fetchWeatherData(pos.coords.latitude, pos.coords.longitude, "Lokasi Anda"); },
+                        () => { Swal.fire('Akses Ditolak', 'Akses lokasi tidak diizinkan oleh browser.', 'error'); }
+                    );
+                }
+            });
+
+            // API Integrations
+            function fetchWeatherByCity(city) {
+                Swal.fire({ title: 'Menghubungkan Server API...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+                const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=id&format=json`;
+
+                $.ajax({
+                    url: geoUrl,
+                    method: 'GET',
+                    success: function(res) {
+                        if (res.results && res.results.length > 0) {
+                            const data = res.results[0];
+                            const fullCityName = `${data.name}, ${data.country || ''}`;
+                            fetchWeatherData(data.latitude, data.longitude, fullCityName);
+                        } else {
+                            Swal.fire('Ups!', 'Nama kota salah atau tidak terdaftar.', 'warning');
+                        }
+                    },
+                    error: function() {
+                        Swal.fire('Koneksi Gagal', 'Gagal memanggil data satelit cuaca.', 'error');
+                    }
+                });
+            }
+
+            async function fetchWeatherData(lat, lon, name) {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,uv_index_max&timezone=auto`;
+                try {
+                    let response = await fetch(url);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    let data = await response.json();
+                    currentCityName = name;
+                    renderData(data, name);
+                    Swal.close();
+                } catch (e) {
+                    Swal.fire('Gagal Memuat Data', `Terjadi kendala sistem API: ${e.message}`, 'error');
+                }
+            }
+
+            function renderData(data, cityName) {
+                const current = data.current;
+                const codeInfo = getWeatherCodeInfo(current.weather_code);
+
+                $('#info-city').text(cityName.split(',')[0]);
+                $('#info-date').text(new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }));
+                $('#info-temp').text(`${Math.round(current.temperature_2m)}°C`);
+                $('#info-desc').text(codeInfo.desc);
+                $('#info-icon').attr('class', `fa-solid ${codeInfo.icon} text-5xl text-amber-300`);
+
+                $('#detail-feels').text(`${Math.round(current.apparent_temperature)}°C`);
+                $('#detail-humidity').text(`${current.relative_humidity_2m}%`);
+                $('#detail-wind').text(`${current.wind_speed_10m} km/h`);
+                $('#detail-uv').text(data.daily.uv_index_max[0]);
+
+                let styleType = current.is_day === 0 ? 'night' : ([51,61,80].includes(current.weather_code) ? 'rain' : 'day');
+                $('#hero, #current-left-panel').css('background', `var(--bg-gradient-${styleType})`);
+                initParticles(styleType); 
+
+                $('#btn-fav i').attr('class', favorites.includes(cityName) ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star');
+
+                // Render Hourly Forecast
+                const labelsPerHour = [];
+                const tempsPerHour = [];
+                $('#hourly-container').empty();
+
+                for(let i = 0; i < 24; i += 3) {
+                    const tStr = new Date(data.hourly.time[i]).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                    const valTemp = Math.round(data.hourly.temperature_2m[i]);
+                    const hCode = getWeatherCodeInfo(data.hourly.weather_code[i]);
+
+                    labelsPerHour.push(tStr);
+                    tempsPerHour.push(valTemp);
+
+                    $('#hourly-container').append(`
+                        <div class="bg-white dark:bg-slate-800 p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex lg:flex-row flex-col justify-between items-center min-w-[90px] snap-center shrink-0 hover:border-sky-400 transition">
+                            <span class="text-[11px] font-bold text-slate-400">${tStr}</span>
+                            <i class="fa-solid ${hCode.icon} text-sky-500 my-1 lg:my-0"></i>
+                            <span class="text-sm font-black text-slate-800 dark:text-slate-100">${valTemp}°C</span>
+                        </div>
+                    `);
+                }
+
+                // Render Chart
+                if (tempChart) tempChart.destroy();
+                const ctx = document.getElementById('hourlyTempChart').getContext('2d');
+                tempChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labelsPerHour,
+                        datasets: [{
+                            label: 'Tren Suhu (°C)',
+                            data: tempsPerHour,
+                            borderColor: '#38bdf8',
+                            backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                });
+
+                // Render Weekly
+                $('#weekly-container').empty();
+                for (let i = 0; i < 7; i++) {
+                    const dateObj = new Date(data.daily.time[i]);
+                    const nameD = dateObj.toLocaleDateString('id-ID', { weekday: 'long' });
+                    const nameDShort = dateObj.toLocaleDateString('id-ID', { weekday: 'short' });
+                    const numD = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                    const wCode = getWeatherCodeInfo(data.daily.weather_code[i]);
+                    
+                    const tMax = Math.round(data.daily.temperature_2m_max[i]);
+                    const tMin = Math.round(data.daily.temperature_2m_min[i]);
+                    const uvIdx = data.daily.uv_index_max[i];
+
+                    $('#weekly-container').append(`
+                        <div class="weekly-card bg-white p-3 rounded-2xl shadow-sm border border-slate-100 text-center hover:scale-105 transform transition duration-300 cursor-pointer"
+                             data-hari="${nameD}, ${numD}" data-desc="${wCode.desc}" data-max="${tMax}" data-min="${tMin}" data-uv="${uvIdx}">
+                            <p class="font-extrabold text-sm text-slate-700 m-0">${nameDShort}</p>
+                            <p class="text-[10px] text-slate-400 font-medium mb-2">${numD}</p>
+                            <i class="fa-solid ${wCode.icon} text-2xl my-2 block text-sky-400"></i>
+                            <p class="text-[11px] font-black m-0 text-slate-800">${tMax}° <span class="text-slate-400 font-normal">/ ${tMin}°</span></p>
+                            <p class="text-[9px] text-slate-400 truncate mt-1 capitalize">${wCode.desc}</p>
+                            <span class="text-[9px] text-sky-500 font-bold block mt-1 hover:underline">Detail →</span>
+                        </div>
+                    `);
+                }
+            }
+
+            // Click Handler for Modal Detail View
+            $(document).on('click', '.weekly-card', function() {
+                const hari = $(this).data('hari');
+                const desc = $(this).data('desc');
+                const max = $(this).data('max');
+                const min = $(this).data('min');
+                const uv = $(this).data('uv');
+
+                Swal.fire({
+                    title: `<strong>Detail Prakiraan:<br><span class="text-sky-500">${hari}</span></strong>`,
+                    icon: 'info',
+                    html: `
+                        <div class="text-left space-y-2 font-semibold text-slate-700">
+                            <p class="border-b pb-1">🌤️ Kondisi: <span class="text-slate-900 uppercase font-bold">${desc}</span></p>
+                            <p class="border-b pb-1">📈 Suhu Tertinggi: <span class="text-rose-500 font-bold">${max}°C</span></p>
+                            <p class="border-b pb-1">📉 Suhu Terendah: <span class="text-blue-500 font-bold">${min}°C</span></p>
+                            <p class="border-b pb-1">☀️ Indeks Radiasi UV: <span class="text-amber-500 font-bold">${uv}</span></p>
+                        </div>
+                    `,
+                    confirmButtonText: 'Kembali',
+                    confirmButtonColor: '#38bdf8'
+                });
+            });
+
+            function getWeatherCodeInfo(code) {
+                switch(code) {
+                    case 0: return { icon: 'fa-sun text-amber-400', desc: 'Cerah' };
+                    case 1: case 2: case 3: return { icon: 'fa-cloud-sun text-sky-400', desc: 'Cerah Berawan' };
+                    case 51: case 53: case 55: return { icon: 'fa-cloud-rain text-blue-400', desc: 'Gerimis' };
+                    case 61: case 63: case 65: return { icon: 'fa-cloud-showers-heavy text-blue-500', desc: 'Hujan' };
+                    case 95: case 96: return { icon: 'fa-cloud-bolt text-yellow-400', desc: 'Badai Petir' };
+                    default: return { icon: 'fa-cloud text-slate-400', desc: 'Berawan tebal' };
+                }
+            }
+
+            // Bookmark Favorites
+            $('#btn-fav').on('click', function() {
+                if (!currentCityName) return;
+                const idx = favorites.indexOf(currentCityName);
+                if (idx === -1) {
+                    favorites.push(currentCityName);
+                    Swal.fire({ title: 'Tersimpan!', text: `${currentCityName} dimasukkan ke favorit.`, icon: 'success', timer: 1200, showConfirmButton: false });
+                } else {
+                    favorites.splice(idx, 1);
+                }
+                localStorage.setItem('skycast_favs', JSON.stringify(favorites));
+                renderFavorites();
+                fetchWeatherByCity(currentCityName.split(',')[0]);
+            });
+
+            function renderFavorites() {
+                $('#favorites-list').empty();
+                if (favorites.length === 0) {
+                    $('#favorites-list').html('<p class="text-slate-400 text-xs italic mx-auto m-0">Belum ada daftar kota favorit.</p>');
+                    return;
+                }
+                favorites.forEach(city => {
+                    $('#favorites-list').append(`
+                        <button class="btn-fav-item bg-slate-100 hover:bg-sky-500 hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 transform active:scale-95 text-slate-700" data-name="${city.split(',')[0]}">
+                            <i class="fa-solid fa-map-pin text-rose-500"></i> ${city.split(',')[0]}
+                        </button>
+                    `);
+                });
+            }
+
+            $('#favorites-list').on('click', '.btn-fav-item', function() {
+                fetchWeatherByCity($(this).data('name'));
+            });
+        });
+    </script>
+</body>
+</html>
